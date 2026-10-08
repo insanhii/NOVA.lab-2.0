@@ -145,8 +145,8 @@ def restart_page_numbering(section, start=1):
     pg.set(qn('w:start'), str(start))
     sectPr.append(pg)
 
-TEAM = ("Gaikwad Vaibhav \u2013 24CO034\nHanny Jangir - 24CO040\n"
-        "Janhavi Adagale \u2013 24CO052\nJoshi Aabha \u2013 24CO053")
+TEAM = ("Ansh Devkate \u2013 24CO024\nPurvi Kalhapure \u2013 24CO054\n"
+        "Nishigandha Ingle \u2013 24CO041")
 
 # ===================================================== FRONT MATTER (unnumbered)
 
@@ -192,13 +192,11 @@ add_p("CERTIFICATE", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=16, space_
 p_cert = add_p(align=WD_ALIGN_PARAGRAPH.JUSTIFY, space_after=40)
 add_rich(p_cert, [
     ("This is to certify that ", False, False),
-    ("Vaibhav Gaikwad (24CO034)", True, False),
+    ("Ansh Devkate (24CO024)", True, False),
     (", ", False, False),
-    ("Hanny Jangir (24CO040)", True, False),
-    (", ", False, False),
-    ("Janhavi Adagale (24CO052)", True, False),
+    ("Purvi Kalhapure (24CO054)", True, False),
     (" and ", False, False),
-    ("Joshi Aabha (24CO053)", True, False),
+    ("Nishigandha Ingle (24CO041)", True, False),
     (" from Third Year Computer Engineering have successfully completed their mini project "
      "work titled ", False, False),
     ("\u201cMediMind Clinical AI Suite\u201d", True, False),
@@ -279,7 +277,7 @@ body("We express our sincere gratitude to our project guide, Prof. M. G. Ghodeka
      "of designing rule-based expert systems, knowledge representation, inference engines, and "
      "preparing this academic report.")
 body("We sincerely acknowledge the dedicated contributions, cooperation, and consistent efforts "
-     "of all our team members: Vaibhav Gaikwad, Hanny Jangir, Janhavi Adagale, and Joshi Aabha. "
+     "of all our team members: Ansh Devkate, Purvi Kalhapure, and Nishigandha Ingle. "
      "The successful completion of this project was possible because of the active "
      "participation, shared responsibility, and effective teamwork of every member.")
 body("We are deeply thankful to Dr. D. P. Gaikwad, Head of the Department of Computer "

@@ -7,10 +7,9 @@
 ### COMPUTER ENGINEERING
 
 **Submitted by**
-- Gaikwad Vaibhav – 24CO034
-- Hanny Jangir - 24CO040
-- Janhavi Adagale – 24CO052
-- Joshi Aabha – 24CO053
+- Ansh Devkate – 24CO024
+- Purvi Kalhapure – 24CO054
+- Nishigandha Ingle – 24CO041
 
 **Under the Guidance of**
 **Prof. M. G. Ghodekar**
@@ -24,7 +23,7 @@
 
 ## CERTIFICATE
 
-This is to certify that **Vaibhav Gaikwad (24CO034)**, **Hanny Jangir (24CO040)**, **Janhavi Adagale (24CO052)** and **Joshi Aabha (24CO053)** from Third Year Computer Engineering have successfully completed their mini project work titled **"MediMind Clinical AI Suite"** at AISSMS College of Engineering, Pune in partial fulfilment of the requirements for the degree of Bachelor of Engineering in Computer Engineering.
+This is to certify that **Ansh Devkate (24CO024)**, **Purvi Kalhapure (24CO054)** and **Nishigandha Ingle (24CO041)** from Third Year Computer Engineering have successfully completed their mini project work titled **"MediMind Clinical AI Suite"** at AISSMS College of Engineering, Pune in partial fulfilment of the requirements for the degree of Bachelor of Engineering in Computer Engineering.
 
 - **Prof. M. G. Ghodekar** (Project Guide)
 - **Dr. D. P. Gaikwad** (HOD)
@@ -71,7 +70,7 @@ The suite is delivered as a full-stack web application: a React 19 + Vite client
 
 We express our sincere gratitude to our project guide, **Prof. M. G. Ghodekar**, for her valuable guidance, encouragement, and continuous support throughout the development of this mini project. Her insightful suggestions helped us understand the practical aspects of designing rule-based expert systems, knowledge representation, inference engines, and preparing this academic report.
 
-We sincerely acknowledge the dedicated contributions, cooperation, and consistent efforts of all our team members: **Vaibhav Gaikwad, Hanny Jangir, Janhavi Adagale, and Joshi Aabha**. The successful completion of this project was possible because of the active participation, shared responsibility, and effective teamwork of every member.
+We sincerely acknowledge the dedicated contributions, cooperation, and consistent efforts of all our team members: **Ansh Devkate, Purvi Kalhapure, and Nishigandha Ingle**. The successful completion of this project was possible because of the active participation, shared responsibility, and effective teamwork of every member.
 
 We are deeply thankful to **Dr. D. P. Gaikwad**, Head of the Department of Computer Engineering, and **Dr. D. S. Bormane**, Principal of AISSMS College of Engineering, Pune, for providing us with the necessary departmental facilities, laboratory resources, and encouraging academic environment required to complete this work.
 
