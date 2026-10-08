@@ -1,215 +1,1101 @@
+"""
+MediMind Clinical AI Suite - Mini Project Report Generator
+Generates: Title, Certificate, Approval + 33 numbered pages (Abstract=1 ... References=33)
+matching the Table of Contents exactly, then converts DOCX -> PDF via Microsoft Word.
+"""
+import os
+import sys
 import docx
 from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.section import WD_SECTION
 from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import nsdecls, qn
 
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+DOCX_PATH = os.path.join(PROJECT_DIR, "NOVA_lab_Mini_Project_Report.docx")
+PDF_PATH = os.path.join(PROJECT_DIR, "NOVA_lab_Mini_Project_Report.pdf")
+DESKTOP_PDF = r"C:\Users\lenovo\Desktop\NOVA_lab_Mini_Project_Report.pdf"
+
 doc = docx.Document()
 
-# Set standard margins (1 inch = 72 pt)
-sections = doc.sections
-for section in sections:
+# ---------------------------------------------------------------- helpers ---
+def set_margins(section):
     section.top_margin = Inches(0.8)
     section.bottom_margin = Inches(0.8)
     section.left_margin = Inches(0.8)
     section.right_margin = Inches(0.8)
 
-# Helper function to format text
-def add_p(doc, text="", align=WD_ALIGN_PARAGRAPH.LEFT, bold=False, italic=False, size=12, space_after=6, space_before=0, font_name="Times New Roman", color=None):
+for s in doc.sections:
+    set_margins(s)
+
+style = doc.styles['Normal']
+style.font.name = 'Times New Roman'
+style.font.size = Pt(12)
+
+def add_p(text="", align=WD_ALIGN_PARAGRAPH.LEFT, bold=False, italic=False,
+          size=12, space_after=6, space_before=0, font="Times New Roman", color=None):
     p = doc.add_paragraph()
     p.alignment = align
     p.paragraph_format.space_after = Pt(space_after)
     p.paragraph_format.space_before = Pt(space_before)
     p.paragraph_format.line_spacing = 1.25
     if text:
-        run = p.add_run(text)
-        run.bold = bold
-        run.italic = italic
-        run.font.name = font_name
-        run.font.size = Pt(size)
+        r = p.add_run(text)
+        r.bold = bold
+        r.italic = italic
+        r.font.name = font
+        r.font.size = Pt(size)
         if color:
-            run.font.color.rgb = color
+            r.font.color.rgb = color
     return p
 
-def add_run(p, text, bold=False, italic=False, size=12, font_name="Times New Roman", color=None):
-    run = p.add_run(text)
-    run.bold = bold
-    run.italic = italic
-    run.font.name = font_name
-    run.font.size = Pt(size)
-    if color:
-        run.font.color.rgb = color
-    return run
+def add_rich(p, parts):
+    """parts: list of (text, bold, italic)"""
+    for text, b, i in parts:
+        r = p.add_run(text)
+        r.bold = b
+        r.italic = i
+        r.font.name = 'Times New Roman'
+        r.font.size = Pt(12)
+    return p
 
-# Set default font
-style = doc.styles['Normal']
-font = style.font
-font.name = 'Times New Roman'
-font.size = Pt(12)
+def body(text):
+    return add_p(text, align=WD_ALIGN_PARAGRAPH.JUSTIFY, space_after=8)
 
-# --- PAGE 1: TITLE PAGE ---
-add_p(doc, "AISSMS", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=18, color=RGBColor(185, 28, 28))
-add_p(doc, "COLLEGE OF ENGINEERING", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=14)
-add_p(doc, "An Autonomous Institute Affiliated to Savitribai Phule Pune University\nApproved by AICTE, New Delhi and Recognised by Govt. of Maharashtra\nAccredited by NAAC with \"A+\" Grade | NBA - 7 UG Programmes", align=WD_ALIGN_PARAGRAPH.CENTER, size=9, space_after=24)
+def body_rich(parts):
+    p = add_p(align=WD_ALIGN_PARAGRAPH.JUSTIFY, space_after=8)
+    return add_rich(p, parts)
 
-add_p(doc, "A Mini Project Report On", align=WD_ALIGN_PARAGRAPH.CENTER, size=13, space_before=12)
-add_p(doc, "MediMind Clinical AI Suite", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=20, space_before=6, space_after=6)
-add_p(doc, "Submitted in partial fulfilment of the requirements for the degree of", align=WD_ALIGN_PARAGRAPH.CENTER, italic=True, size=12)
-add_p(doc, "THIRD YEAR OF ENGINEERING", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=14, space_before=6)
-add_p(doc, "In\nCOMPUTER ENGINEERING", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=13, space_after=18)
+def chapter(text):
+    return add_p(text, align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=16,
+                 space_after=14, space_before=4)
 
-add_p(doc, "Submitted by", align=WD_ALIGN_PARAGRAPH.CENTER, italic=True, size=12)
-p_sub = add_p(doc, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=18)
-add_run(p_sub, "Gaikwad Vaibhav – 24CO034\nHanny Jangir - 24CO040\nJanhavi Adagale – 24CO052\nJoshi Aabha – 24CO053", bold=True, size=12)
+def sub(text):
+    return add_p(text, bold=True, size=13, space_before=8, space_after=6)
 
-add_p(doc, "Under the Guidance of", align=WD_ALIGN_PARAGRAPH.CENTER, size=12)
-add_p(doc, "Prof. M. G. Ghodekar", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=14, space_after=24)
+def bullets(items):
+    for it in items:
+        add_p(u"\u2022  " + it, align=WD_ALIGN_PARAGRAPH.JUSTIFY, space_after=4)
 
-add_p(doc, "Department Of Computer Engineering\nALL INDIA SHRI SHIVAJI MEMORIAL SOCIETY’S\nCOLLEGE OF ENGINEERING Pune – 411001", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=12)
-add_p(doc, "Academic Year: 2026-27(Term – I)", align=WD_ALIGN_PARAGRAPH.CENTER, size=11, space_before=6)
-add_p(doc, "Savitribai Phule Pune University", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=13, space_before=4)
+def numbered(items):
+    for n, it in enumerate(items, 1):
+        add_p(f"{n}. {it}", align=WD_ALIGN_PARAGRAPH.JUSTIFY, space_after=4)
 
-doc.add_page_break()
+def mono_block(lines, size=9):
+    for ln in lines:
+        add_p(ln, font="Consolas", size=size, space_after=0, align=WD_ALIGN_PARAGRAPH.LEFT)
+    add_p("", space_after=4)
 
-# --- PAGE 2: CERTIFICATE ---
-add_p(doc, "AISSMS", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=16, color=RGBColor(185, 28, 28))
-add_p(doc, "COLLEGE OF ENGINEERING", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=13)
-add_p(doc, "DEPARTMENT OF COMPUTER ENGINEERING", align=WD_ALIGN_PARAGRAPH.CENTER, size=10, space_after=24)
+def set_cell(cell, text, bold=False, center=False, size=11):
+    cell.text = ""
+    p = cell.paragraphs[0]
+    if center:
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.paragraph_format.space_after = Pt(2)
+    p.paragraph_format.space_before = Pt(2)
+    r = p.add_run(text)
+    r.bold = bold
+    r.font.name = 'Times New Roman'
+    r.font.size = Pt(size)
 
-add_p(doc, "CERTIFICATE", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=16, space_after=24)
+def shade(cell, fill="F2F2F2"):
+    cell._tc.get_or_add_tcPr().append(
+        parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), fill)))
 
-p_cert = add_p(doc, align=WD_ALIGN_PARAGRAPH.JUSTIFY, space_after=48)
-add_run(p_cert, "This is to certify that ")
-add_run(p_cert, "Vaibhav Gaikwad(24CO034), Hanny Jangir(24CO040), Janhavi Adagale(24CO052)", bold=True)
-add_run(p_cert, " and ")
-add_run(p_cert, "Joshi Aabha(24CO053)", bold=True)
-add_run(p_cert, " from Third Year Computer Engineering have successfully completed their mini project work titled ")
-add_run(p_cert, "“MediMind Clinical AI Suite”", bold=True)
-add_run(p_cert, " at AISSMS College of Engineering, Pune in partial fulfilment of bachelor’s degree in engineering.")
+def add_table(headers, rows, widths, center_cols=(), size=11):
+    t = doc.add_table(rows=1, cols=len(headers))
+    t.style = 'Table Grid'
+    t.alignment = WD_TABLE_ALIGNMENT.CENTER
+    t.autofit = False
+    for j, h in enumerate(headers):
+        c = t.rows[0].cells[j]
+        set_cell(c, h, bold=True, center=True, size=size)
+        shade(c)
+        c.width = Inches(widths[j])
+    for row in rows:
+        cells = t.add_row().cells
+        for j, val in enumerate(row):
+            set_cell(cells[j], val, bold=(j == 0 and len(headers) > 2),
+                     center=(j in center_cols), size=size)
+            cells[j].width = Inches(widths[j])
+    add_p("", space_after=4)
+    return t
 
-p_sig = add_p(doc, align=WD_ALIGN_PARAGRAPH.JUSTIFY, space_before=72)
-add_run(p_sig, "Prof. M. G. Ghodekar\t\tDr. D.P. Gaikwad\t\tDr. D.S. Bormane\nProject Guide\t\t\tHOD\t\t\tPrincipal, AISSMS COE", bold=True)
+def page_break():
+    doc.add_page_break()
 
-doc.add_page_break()
+def add_footer_page_numbers(section):
+    footer = section.footer
+    footer.is_linked_to_previous = False
+    p = footer.paragraphs[0]
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run()
+    f1 = OxmlElement('w:fldChar'); f1.set(qn('w:fldCharType'), 'begin')
+    it = OxmlElement('w:instrText'); it.set(qn('xml:space'), 'preserve'); it.text = 'PAGE'
+    f2 = OxmlElement('w:fldChar'); f2.set(qn('w:fldCharType'), 'end')
+    run._r.append(f1); run._r.append(it); run._r.append(f2)
+    run.font.name = 'Times New Roman'
+    run.font.size = Pt(10)
 
-# --- PAGE 3: APPROVAL PAGE ---
-add_p(doc, "MINI PROJECT APPROVAL", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=16, space_before=18, space_after=24)
-add_p(doc, "The Mini Project entitled", align=WD_ALIGN_PARAGRAPH.CENTER, size=13)
-add_p(doc, "MediMind Clinical AI Suite", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=18, space_after=12)
-add_p(doc, "By", align=WD_ALIGN_PARAGRAPH.CENTER, size=12)
+def restart_page_numbering(section, start=1):
+    sectPr = section._sectPr
+    pg = OxmlElement('w:pgNumType')
+    pg.set(qn('w:start'), str(start))
+    sectPr.append(pg)
 
-p_app = add_p(doc, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=24)
-add_run(p_app, "Gaikwad Vaibhav – 24CO034\nHanny Jangir - 24CO040\nJanhavi Adagale – 24CO052\nJoshi Aabha – 24CO053", bold=True, size=12)
+TEAM = ("Gaikwad Vaibhav \u2013 24CO034\nHanny Jangir - 24CO040\n"
+        "Janhavi Adagale \u2013 24CO052\nJoshi Aabha \u2013 24CO053")
 
-add_p(doc, "Is approved for the degree of", align=WD_ALIGN_PARAGRAPH.CENTER, size=12)
-add_p(doc, "Third Year of Engineering\nIn\nComputer Engineering", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=13, space_after=48)
+# ===================================================== FRONT MATTER (unnumbered)
 
-p_ex = add_p(doc, align=WD_ALIGN_PARAGRAPH.JUSTIFY, space_before=48)
-add_run(p_ex, "Examiner 1: _____________________\t\tExaminer 2: _____________________\nName and Signature\t\t\t\tName and Signature", bold=True)
+# ---------------- TITLE PAGE
+add_p("AISSMS", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=18,
+      color=RGBColor(185, 28, 28), space_after=0)
+add_p("COLLEGE OF ENGINEERING", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=14, space_after=2)
+add_p("An Autonomous Institute Affiliated to Savitribai Phule Pune University\n"
+      "Approved by AICTE, New Delhi and Recognised by Govt. of Maharashtra\n"
+      "Accredited by NAAC with \u201cA+\u201d Grade | NBA - 7 UG Programmes",
+      align=WD_ALIGN_PARAGRAPH.CENTER, size=9, space_after=18)
 
-add_p(doc, "\nDate: 23rd September 2026\nPlace: Pune", align=WD_ALIGN_PARAGRAPH.LEFT, size=11, space_before=36)
+add_p("A Mini Project Report On", align=WD_ALIGN_PARAGRAPH.CENTER, size=13, space_before=10)
+add_p("MediMind Clinical AI Suite", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=20,
+      space_before=6, space_after=6)
+add_p("Submitted in partial fulfilment of the requirements for the degree of",
+      align=WD_ALIGN_PARAGRAPH.CENTER, italic=True, size=12)
+add_p("THIRD YEAR OF ENGINEERING", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=14, space_before=6)
+add_p("In\nCOMPUTER ENGINEERING", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=13, space_after=14)
 
-doc.add_page_break()
+add_p("Submitted by", align=WD_ALIGN_PARAGRAPH.CENTER, italic=True, size=12)
+p_team = add_p(align=WD_ALIGN_PARAGRAPH.CENTER, space_after=14)
+r = p_team.add_run(TEAM); r.bold = True; r.font.name = 'Times New Roman'; r.font.size = Pt(12)
 
-# --- PAGE 4: ABSTRACT ---
-add_p(doc, "ABSTRACT", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=16, space_after=18)
-add_p(doc, "The MediMind Clinical AI Suite is an advanced, rule-based expert diagnostic and clinical decision support system (CDSS) designed to assist medical practitioners, triage nurses, and students in automated disease diagnosis, symptom-driven inference, and patient vital monitoring. Traditional clinical diagnostic workflows often rely on manual observation across fragmented reference manuals, medical history records, laboratory tests, and differential diagnosis tables. This manual process can be time-consuming, prone to human error under high casualty pressure, and may lead to delayed medical interventions. The proposed MediMind system integrates these diagnostic workflows into a unified, interactive software suite.", align=WD_ALIGN_PARAGRAPH.JUSTIFY)
-add_p(doc, "The application collects structured patient clinical data, including observed symptoms across multiple body systems (respiratory, cardiovascular, gastrointestinal, neurological, and systemic), physiological vitals (blood pressure, heart rate, body temperature, oxygen saturation SpO2), and patient risk factors. The core inference engine executes both Forward Chaining (data-driven reasoning from symptoms to disease diagnosis) and Backward Chaining (goal-driven hypothesis verification from suspected disease to required symptom evidence). The system evaluates disease probabilities, generates differential diagnoses, calculates patient triage acuity levels, and produces comprehensive Electronic Health Record (EHR) diagnostic reports.", align=WD_ALIGN_PARAGRAPH.JUSTIFY)
-add_p(doc, "MediMind is designed as more than a basic symptom checker. It features an interactive Knowledge Base (KB) Editor that allows medical experts to add, modify, or audit production rules (IF-THEN clauses), adjust certainty factors (CF), and update clinical recommendation guidelines. The system retains complete working memory context, enabling clinicians to perform iterative diagnostic updates without re-entering patient data.", align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+add_p("Under the Guidance of", align=WD_ALIGN_PARAGRAPH.CENTER, size=12)
+add_p("Prof. M. G. Ghodekar", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=14, space_after=18)
 
-doc.add_page_break()
+add_p("Department Of Computer Engineering\nALL INDIA SHRI SHIVAJI MEMORIAL SOCIETY\u2019S\n"
+      "COLLEGE OF ENGINEERING Pune \u2013 411001",
+      align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=12)
+add_p("Academic Year: 2026-27 (Term \u2013 I)", align=WD_ALIGN_PARAGRAPH.CENTER, size=11, space_before=6)
+add_p("Savitribai Phule Pune University", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=13)
+page_break()
 
-# --- PAGE 5: ACKNOWLEDGEMENT ---
-add_p(doc, "ACKNOWLEDGEMENT", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=16, space_after=18)
-add_p(doc, "We express our sincere gratitude to our project guide, Prof. M. G. Ghodekar, for her valuable guidance, encouragement, and continuous support throughout the development of this mini project. Her insightful suggestions helped us understand the practical aspects of designing rule-based expert systems, knowledge representation, and preparing this academic report.", align=WD_ALIGN_PARAGRAPH.JUSTIFY)
-add_p(doc, "We sincerely acknowledge the dedicated contributions, cooperation, and consistent efforts of all our team members: Hanny Jangir, Vaibhav Gaikwad, Janhavi Adagale, and Joshi Aabha. The successful completion of this project was possible because of the active participation, shared responsibility, and teamwork of every member.", align=WD_ALIGN_PARAGRAPH.JUSTIFY)
-add_p(doc, "We are thankful to Dr. D. P. Gaikwad, Head of the Department of Computer Engineering, and Dr. D. S. Bormane, Principal of AISSMS College of Engineering, Pune, for providing us with the opportunity, facilities, and academic environment required to complete this work.", align=WD_ALIGN_PARAGRAPH.JUSTIFY)
-add_p(doc, "\nAcademic Year: 2026-2027\nDate: 23rd September 2026", align=WD_ALIGN_PARAGRAPH.LEFT, size=11, space_before=24)
+# ---------------- CERTIFICATE
+add_p("AISSMS", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=16,
+      color=RGBColor(185, 28, 28), space_after=0)
+add_p("COLLEGE OF ENGINEERING", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=13, space_after=2)
+add_p("DEPARTMENT OF COMPUTER ENGINEERING", align=WD_ALIGN_PARAGRAPH.CENTER, size=10, space_after=20)
 
-doc.add_page_break()
+add_p("CERTIFICATE", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=16, space_after=20)
 
-# --- PAGE 6: TABLE OF CONTENTS ---
-add_p(doc, "TABLE OF CONTENTS", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=16, space_after=18)
+p_cert = add_p(align=WD_ALIGN_PARAGRAPH.JUSTIFY, space_after=40)
+add_rich(p_cert, [
+    ("This is to certify that ", False, False),
+    ("Vaibhav Gaikwad (24CO034)", True, False),
+    (", ", False, False),
+    ("Hanny Jangir (24CO040)", True, False),
+    (", ", False, False),
+    ("Janhavi Adagale (24CO052)", True, False),
+    (" and ", False, False),
+    ("Joshi Aabha (24CO053)", True, False),
+    (" from Third Year Computer Engineering have successfully completed their mini project "
+     "work titled ", False, False),
+    ("\u201cMediMind Clinical AI Suite\u201d", True, False),
+    (" at AISSMS College of Engineering, Pune in partial fulfilment of the requirements for "
+     "the degree of Bachelor of Engineering in Computer Engineering.", False, False),
+])
 
-toc_data = [
-    ("1", "Abstract", "1"),
-    ("2", "Acknowledgement", "2"),
-    ("3", "Table of Contents", "3"),
-    ("4", "Introduction", "4-5"),
-    ("5", "Problem Statement and Objectives", "6-7"),
-    ("6", "Software Requirement Specification (SRS)", "8-10"),
-    ("7", "System Analysis and Design", "11-13"),
-    ("8", "AI Based Clinical Diagnostic Systems & Rule Inference", "14-17"),
-    ("9", "Database and User Preference Management", "18-21"),
-    ("10", "API Integration and Backend Implementation", "22-25"),
-    ("11", "Graphical User Interface", "26-27"),
-    ("12", "Implementation Details", "28-31"),
-    ("13", "Conclusion", "32"),
+p_sig = add_p(align=WD_ALIGN_PARAGRAPH.LEFT, space_before=64)
+r = p_sig.add_run("Prof. M. G. Ghodekar\t\t\tDr. D. P. Gaikwad\t\t\tDr. D. S. Bormane\n"
+                  "Project Guide\t\t\t\tHOD\t\t\t\tPrincipal, AISSMS COE")
+r.bold = True; r.font.name = 'Times New Roman'; r.font.size = Pt(12)
+page_break()
+
+# ---------------- APPROVAL
+add_p("MINI PROJECT APPROVAL", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=16,
+      space_before=14, space_after=20)
+add_p("The Mini Project entitled", align=WD_ALIGN_PARAGRAPH.CENTER, size=13)
+add_p("MediMind Clinical AI Suite", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=18, space_after=10)
+add_p("By", align=WD_ALIGN_PARAGRAPH.CENTER, size=12)
+
+p_app = add_p(align=WD_ALIGN_PARAGRAPH.CENTER, space_after=18)
+r = p_app.add_run(TEAM); r.bold = True; r.font.name = 'Times New Roman'; r.font.size = Pt(12)
+
+add_p("Is approved for the degree of", align=WD_ALIGN_PARAGRAPH.CENTER, size=12)
+add_p("Third Year of Engineering\nIn\nComputer Engineering",
+      align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=13, space_after=36)
+
+p_ex = add_p(align=WD_ALIGN_PARAGRAPH.LEFT, space_before=36)
+r = p_ex.add_run("Examiner 1: _____________________\t\tExaminer 2: _____________________\n"
+                 "Name and Signature\t\t\t\tName and Signature")
+r.bold = True; r.font.name = 'Times New Roman'; r.font.size = Pt(12)
+
+add_p("\nDate: 23rd September 2026\nPlace: Pune", align=WD_ALIGN_PARAGRAPH.LEFT, size=11, space_before=30)
+
+# ===================================================== NUMBERED SECTION (page 1 = Abstract)
+numbered_section = doc.add_section(WD_SECTION.NEW_PAGE)
+set_margins(numbered_section)
+
+# ---------------- PAGE 1: ABSTRACT
+chapter("ABSTRACT")
+body("The MediMind Clinical AI Suite is an advanced, rule-based expert diagnostic and clinical "
+     "decision support system (CDSS) designed to assist medical practitioners, triage nurses, and "
+     "students in automated disease diagnosis, symptom-driven inference, and patient vital "
+     "monitoring. Traditional clinical diagnostic workflows often rely on manual observation "
+     "across fragmented reference manuals, medical history records, laboratory tests, and "
+     "differential diagnosis tables. This manual process can be time-consuming, prone to human "
+     "error under high casualty pressure, and may lead to delayed medical interventions. The "
+     "proposed MediMind system integrates these diagnostic workflows into a unified, interactive "
+     "software suite.")
+body("The application collects structured patient clinical data, including observed symptoms "
+     "across multiple body systems (systemic, respiratory, gastrointestinal, and "
+     "neuro-muscular), physiological vitals (blood pressure, heart rate, body temperature, and "
+     "oxygen saturation SpO2), and patient risk factors. This information is validated and held "
+     "in working memory. The core inference engine executes both Forward Chaining (data-driven "
+     "reasoning from symptoms to disease diagnosis) and Backward Chaining (goal-driven "
+     "hypothesis verification from a suspected disease to the required symptom evidence). The "
+     "system evaluates disease probability scores, generates differential diagnoses, calculates "
+     "patient triage acuity levels, and produces comprehensive Electronic Health Record (EHR) "
+     "diagnostic reports.")
+body("MediMind is designed as more than a basic symptom checker. It features an interactive "
+     "Knowledge Base (KB) Editor that allows medical experts to add, modify, or audit production "
+     "rules (IF-THEN clauses), adjust certainty factors, and update clinical recommendation "
+     "guidelines. The system retains complete working memory context, enabling clinicians to "
+     "perform iterative diagnostic updates without re-entering patient data.")
+body("The suite is delivered as a full-stack web application: a React 19 + Vite client with "
+     "ten interactive AI visualizers, and a Node.js + Express backend persisting academic "
+     "content in MongoDB through Mongoose. The project demonstrates the practical "
+     "implementation of artificial intelligence, knowledge representation, production systems, "
+     "and inference algorithms in modern healthcare, and can be extended with IoT vital-sign "
+     "sensors, EMR integration, and medical imaging classification in the future.")
+page_break()
+
+# ---------------- PAGE 2: ACKNOWLEDGEMENT
+chapter("ACKNOWLEDGEMENT")
+body("We express our sincere gratitude to our project guide, Prof. M. G. Ghodekar, for her "
+     "valuable guidance, encouragement, and continuous support throughout the development of "
+     "this mini project. Her insightful suggestions helped us understand the practical aspects "
+     "of designing rule-based expert systems, knowledge representation, inference engines, and "
+     "preparing this academic report.")
+body("We sincerely acknowledge the dedicated contributions, cooperation, and consistent efforts "
+     "of all our team members: Vaibhav Gaikwad, Hanny Jangir, Janhavi Adagale, and Joshi Aabha. "
+     "The successful completion of this project was possible because of the active "
+     "participation, shared responsibility, and effective teamwork of every member.")
+body("We are deeply thankful to Dr. D. P. Gaikwad, Head of the Department of Computer "
+     "Engineering, and Dr. D. S. Bormane, Principal of AISSMS College of Engineering, Pune, for "
+     "providing us with the necessary departmental facilities, laboratory resources, and "
+     "encouraging academic environment required to complete this work.")
+body("We also extend our thanks to all faculty and staff members of the Department of Computer "
+     "Engineering for their direct and indirect support, and to our classmates and friends for "
+     "their constructive feedback during the testing and refinement of the system.")
+body("Finally, we express our heartfelt gratitude to our families for their constant "
+     "encouragement, patience, and support throughout the completion of this engineering mini "
+     "project.")
+add_p("\nAcademic Year: 2026-27 (Term \u2013 I)\nDate: 23rd September 2026",
+      align=WD_ALIGN_PARAGRAPH.LEFT, size=11, space_before=18)
+page_break()
+
+# ---------------- PAGE 3: TABLE OF CONTENTS
+chapter("TABLE OF CONTENTS")
+toc_rows = [
+    ("1",  "Abstract", "1"),
+    ("2",  "Acknowledgement", "2"),
+    ("3",  "Table of Contents", "3"),
+    ("4",  "Introduction", "4 - 5"),
+    ("5",  "Problem Statement and Objectives", "6 - 7"),
+    ("6",  "Software Requirement Specification (SRS)", "8 - 10"),
+    ("7",  "System Analysis and Design", "11 - 13"),
+    ("8",  "AI Based Clinical Diagnostic Systems & Rule Inference", "14 - 17"),
+    ("9",  "Knowledge Base & Working Memory Management", "18 - 21"),
+    ("10", "API Integration and Backend Implementation", "22 - 25"),
+    ("11", "Graphical User Interface & Clinical Visualizer", "26 - 27"),
+    ("12", "System Implementation & Testing", "28 - 31"),
+    ("13", "Conclusion & Future Scope", "32"),
     ("14", "References", "33"),
 ]
+add_table(["Sr. No.", "Chapter / Section", "Page No."], toc_rows,
+          [0.9, 4.8, 1.1], center_cols=(0, 2), size=12)
+page_break()
 
-table = doc.add_table(rows=1, cols=3)
-table.alignment = WD_TABLE_ALIGNMENT.CENTER
-hdr_cells = table.rows[0].cells
-hdr_cells[0].text = 'Sr. No.'
-hdr_cells[1].text = 'Chapter / Section'
-hdr_cells[2].text = 'Page No.'
-for cell in hdr_cells:
-    for p in cell.paragraphs:
-        p.runs[0].font.bold = True
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+# ---------------- PAGE 4: CH1 INTRODUCTION (1/2)
+chapter("CHAPTER 1: INTRODUCTION")
+sub("1.1 Overview of the Project")
+body("In modern healthcare systems, rapid and accurate clinical decision-making is vital for "
+     "saving lives, optimizing hospital triage, and preventing diagnostic errors. Diagnostic "
+     "decision-making requires analyzing a complex web of symptoms, physiological vitals, "
+     "patient medical history, and risk factors. Traditional clinical workflows rely heavily on "
+     "the manual expertise of physicians and nurses, who cross-reference patient symptoms "
+     "against extensive clinical guidelines and medical literature. Under high patient volumes, "
+     "such as emergency department triage, this process can become overloaded, leading to "
+     "delayed interventions or oversight of critical disease markers.")
+body("The MediMind Clinical AI Suite is designed to address these challenges by providing an "
+     "interactive, rule-based expert diagnostic system. Built around production rules (IF-THEN "
+     "logic) inspired by historic expert systems such as Stanford\u2019s MYCIN, MediMind combines "
+     "data-driven Forward Chaining inference and hypothesis-driven Backward Chaining inference. "
+     "The system provides real-time patient vital analysis, automated disease diagnosis with "
+     "certainty scores, interactive Knowledge Base auditing, and electronic report generation. "
+     "MediMind is delivered as the flagship module of the NOVA.lab 2.0 portal, an AI "
+     "laboratory that hosts ten interactive algorithm visualizers for the SPPU 2024 pattern "
+     "Artificial Intelligence curriculum.")
+page_break()
 
-for sr, ch, pg in toc_data:
-    row_cells = table.add_row().cells
-    row_cells[0].text = sr
-    row_cells[1].text = ch
-    row_cells[2].text = pg
-    row_cells[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-    row_cells[2].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+# ---------------- PAGE 5: CH1 INTRODUCTION (2/2)
+sub("1.2 Need for the System")
+body("Generic medical chatbots and online search engines often provide fragmented, unstructured, "
+     "or alarmist diagnostic suggestions without considering clinical context or physiological "
+     "vitals. For example, a patient presenting with high fever and chills could be suffering "
+     "from Malaria, Typhoid, or Dengue. A general keyword search fails to evaluate specific "
+     "symptom combinations (such as retro-orbital pain or bradycardia) or patient vitals (such "
+     "as blood pressure or oxygen saturation).")
+body("MediMind addresses this critical gap by implementing structured clinical input, production "
+     "rule validation, and dynamic inference engines. The system validates symptom presence, "
+     "checks physiological parameters against clinical boundaries, and executes deterministic "
+     "rule evaluation to yield transparent, explainable diagnostic reports that a practitioner "
+     "can trace rule by rule.")
+sub("1.3 Purpose of the Project")
+add_p("The primary purpose of this project is to develop an intelligent, interactive Clinical "
+      "Decision Support System that demonstrates the practical application of Artificial "
+      "Intelligence in medicine. Specific purposes include:", align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+bullets([
+    "To build a robust rule-based expert system capable of evaluating complex medical production rules.",
+    "To implement dual inference engines: Forward Chaining for data-driven symptom diagnosis and Backward Chaining for goal-driven differential verification.",
+    "To integrate patient vital sign monitoring with automated alert thresholding.",
+    "To provide an interactive Knowledge Base Editor that enables medical experts to add, modify, and audit clinical diagnostic rules.",
+    "To generate standardized, printable Electronic Health Record (EHR) diagnostic reports for clinical auditing.",
+])
+sub("1.4 Scope of the Project")
+bullets([
+    "Diagnostic Modules: multi-system symptom selection across Systemic, Respiratory, Gastrointestinal, and Neuro-Muscular categories.",
+    "Inference Capability: deterministic evaluation of rule conditions, working memory updates, and confidence scoring.",
+    "Patient Vitals Monitoring: temperature, heart rate, blood pressure, and SpO2 tracking with anomaly colour coding.",
+    "EHR Export: automated clinical report formatting with ICD-10 codes, suggested investigations, and precautions.",
+])
+add_p("Limitation Note: MediMind is designed as an educational and clinical decision support "
+      "assistant. It does not replace licensed medical diagnosis or emergency healthcare "
+      "interventions.", italic=True, align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+page_break()
 
-doc.add_page_break()
+# ---------------- PAGE 6: CH2 PROBLEM STATEMENT (1/2)
+chapter("CHAPTER 2: PROBLEM STATEMENT AND OBJECTIVES")
+sub("2.1 Problem Statement")
+body("Medical diagnosis in clinical and emergency environments involves synthesizing "
+     "heterogeneous patient data, such as patient-reported symptoms, physical examination "
+     "findings, and physiological vital signs, into accurate diagnostic hypotheses. Traditional "
+     "diagnostic processes suffer from three major bottlenecks:")
+numbered([
+    "Cognitive Overload and Triage Delays: in crowded clinical settings, healthcare workers must rapidly prioritize patients. Manual evaluation of multi-system symptoms can delay critical treatment for conditions like severe malaria or hypoxemic COVID-19 pneumonia.",
+    "Lack of Diagnostic Explainability in AI: modern deep learning black-box models provide predictions without explaining the underlying reasoning chain. Medical practitioners require transparent, rule-traceable explanations before acting on AI recommendations.",
+    "Static Diagnostic Tools: existing clinical tools often lack real-time knowledge base customization, preventing doctors from updating diagnostic criteria according to localized disease outbreaks or updated clinical protocols.",
+])
+body("Therefore, there is a clear need for an explainable, interactive, and customizable "
+     "Clinical AI Expert System that combines structured symptom inputs, dual-mode rule "
+     "inference, and working memory tracking to deliver instant, explainable medical decision "
+     "support at the point of care.")
+page_break()
 
-# --- CHAPTERS ---
-add_p(doc, "CHAPTER 1: INTRODUCTION", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=16, space_after=14)
-add_p(doc, "1.1 Overview of the Project", bold=True, size=13, space_before=10)
-add_p(doc, "In modern healthcare systems, rapid and accurate clinical decision-making is vital for saving lives, optimizing hospital triage, and preventing diagnostic errors. Diagnostic decision-making requires analyzing a complex web of symptoms, physiological vitals, patient medical history, and risk factors. Traditional clinical workflows rely heavily on manual observation across fragmented reference manuals, medical history records, laboratory tests, and differential diagnosis tables. The MediMind Clinical AI Suite provides an interactive, rule-based expert diagnostic system that combines data-driven Forward Chaining inference and hypothesis-driven Backward Chaining inference.", align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+# ---------------- PAGE 7: CH2 PROBLEM STATEMENT (2/2)
+sub("2.2 Specific Objectives of the Project")
+numbered([
+    "To collect and structure comprehensive clinical symptom parameters across four medical categories (Systemic, Respiratory, Gastrointestinal, Neuro-Muscular).",
+    "To implement a Forward Chaining inference engine that matches working memory facts against production rules to deduce potential diseases with confidence scores.",
+    "To implement a Backward Chaining inference engine that validates specific disease hypotheses by identifying missing symptom evidence.",
+    "To design a real-time Patient Vitals entry and monitoring panel with physiological anomaly detection (fever, tachycardia, hypoxia).",
+    "To develop an interactive Knowledge Base (KB) Management Editor for dynamic rule creation, editing, and triage classification.",
+    "To implement automated EHR report generation with ICD-10 codes, suggested laboratory investigations, and clinical precautions.",
+    "To serve the suite through a full-stack architecture (React client, Express API, MongoDB persistence) with clean separation of concerns.",
+])
+sub("2.3 Expected Outcomes")
+body("The expected outcome of the project is a fully functional web-based Clinical AI Suite "
+     "featuring five interactive tabs: the Forward Chaining Workbench, the Backward Chaining "
+     "Hypothesis Verifier, the Patient Vitals and EHR Input panel, the Knowledge Base Rule "
+     "Editor, and the Clinical Diagnosis Report generator. The suite should reproduce clinical "
+     "presets (Malaria, Dengue, COVID-19, Typhoid, Common Cold) with one click, rank differential "
+     "diagnoses by confidence percentage, and remain responsive during a viva demonstration.")
+page_break()
 
-add_p(doc, "1.2 Need for the System", bold=True, size=13, space_before=10)
-add_p(doc, "Generic medical chatbots often provide general information, but fail to synthesize specific symptom combinations or physiological vitals into safe clinical decision support. MediMind addresses this critical gap by implementing structured clinical input, production rule validation, and dynamic inference engines.", align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+# ---------------- PAGE 8: CH3 SRS (1/3)
+chapter("CHAPTER 3: SOFTWARE REQUIREMENT SPECIFICATION (SRS)")
+sub("3.1 Purpose and Scope of this Document")
+body("This Software Requirement Specification describes the functional and non-functional "
+     "requirements of the MediMind Clinical AI Suite, the hardware and software environment "
+     "required to run it, and the feasibility of the chosen approach. It is intended for the "
+     "project guide, examiners, and future maintainers of the system.")
+sub("3.2 Functional Requirements")
+add_table(
+    ["Req ID", "Functional Requirement Description"],
+    [
+        ("FR-01", "The system shall allow users to select observed symptoms from structured categories (Systemic, Respiratory, Gastrointestinal, Neuro-Muscular)."),
+        ("FR-02", "The system shall execute Forward Chaining inference to match working memory facts against diagnostic production rules."),
+        ("FR-03", "The system shall calculate a confidence percentage for every rule as the ratio of satisfied premises to required premises."),
+        ("FR-04", "The system shall execute Backward Chaining by selecting a target disease hypothesis and reporting the missing symptom evidence."),
+        ("FR-05", "The system shall accept physiological vitals (Temp, HR, BP, SpO2) and highlight anomalous values using clinical thresholds."),
+        ("FR-06", "The system shall automatically add a fever fact to working memory when recorded body temperature exceeds 100.4\u00b0F."),
+        ("FR-07", "The system shall allow medical experts to add new production rules with disease name, triage urgency, and required premises."),
+        ("FR-08", "The system shall generate a structured EHR Diagnostic Report containing patient demographics, vitals, diagnosis, confidence, ICD-10 code, investigations, and precautions."),
+    ],
+    [0.85, 5.95], center_cols=(0,), size=11)
+page_break()
 
-doc.add_page_break()
+# ---------------- PAGE 9: CH3 SRS (2/3)
+sub("3.3 Hardware Requirements")
+add_table(
+    ["Component", "Minimum Specification", "Recommended Specification"],
+    [
+        ("Processor", "Intel Core i3 (8th Gen) / equivalent", "Intel Core i5 (11th Gen) or higher"),
+        ("RAM", "4 GB", "8 GB or higher"),
+        ("Storage", "500 MB free disk space", "2 GB free SSD space"),
+        ("Display", "1366 x 768 resolution", "1920 x 1080 Full HD"),
+        ("Network", "Broadband for MongoDB Atlas access", "Stable broadband / campus LAN"),
+    ],
+    [1.35, 2.7, 2.75], size=11)
+sub("3.4 Software Requirements")
+add_table(
+    ["Software", "Version / Standard", "Purpose"],
+    [
+        ("Operating System", "Windows 10/11, Linux, macOS", "Development and deployment platform"),
+        ("Node.js", "v18 or later", "JavaScript runtime for the Express backend"),
+        ("React", "19.2.8 with Vite 8.3.0", "Component-based frontend framework"),
+        ("Express.js", "4.19.2", "REST API and static file serving"),
+        ("MongoDB + Mongoose", "Atlas cluster / Mongoose 8.5.2", "Academic content persistence and schema validation"),
+        ("Web Browser", "Chrome, Edge, Firefox (latest)", "Client runtime for the SPA"),
+        ("Visual Studio Code", "Latest", "IDE for development"),
+    ],
+    [1.9, 2.2, 2.7], size=11)
+page_break()
 
-add_p(doc, "CHAPTER 2: PROBLEM STATEMENT & OBJECTIVES", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=16, space_after=14)
-add_p(doc, "2.1 Problem Statement", bold=True, size=13, space_before=10)
-add_p(doc, "Planning and executing accurate clinical diagnostics involves evaluating multiple symptoms and vitals under time pressure. Traditional diagnostic processes suffer from cognitive overload during emergencies, lack of explainability in black-box AI models, and static diagnostic tools. MediMind solves this by implementing structured inputs, production rule validation, and dynamic dual inference engines.", align=WD_ALIGN_PARAGRAPH.JUSTIFY)
+# ---------------- PAGE 10: CH3 SRS (3/3)
+sub("3.5 Non-Functional Requirements")
+add_table(
+    ["Area", "Requirement Specification"],
+    [
+        ("Usability", "Interface must be clean, intuitive, and accessible to medical professionals and students without training."),
+        ("Performance", "Rule inference execution time must remain under 100 milliseconds for prompt interactive response."),
+        ("Reliability", "Working memory state must be maintained without data corruption while switching between the five suite tabs."),
+        ("Maintainability", "Knowledge Base rules must be decoupled from UI rendering logic so rules can be added without touching components."),
+        ("Security", "Patient data must remain local to the browser session and must not be logged to public endpoints; API secrets are stored in environment files."),
+        ("Portability", "The application must run on any modern browser and operating system without native installation."),
+    ],
+    [1.7, 5.1], size=11)
+sub("3.6 Feasibility Study")
+body_rich([
+    ("Technical Feasibility: ", True, False),
+    ("the entire stack (React, Vite, Express, MongoDB) is open source, well documented, and "
+     "already familiar to the team from prior coursework. The inference engine is pure "
+     "JavaScript with no exotic dependencies, so the technical risk is low.", False, False),
+])
+body_rich([
+    ("Economic Feasibility: ", True, False),
+    ("no licensing cost is incurred. Development tools are free, the MongoDB Atlas free tier "
+     "hosts the academic collection, and the application runs on commodity student hardware.", False, False),
+])
+body_rich([
+    ("Operational Feasibility: ", True, False),
+    ("users need only a browser; there is no installation step. One-click clinical presets and "
+     "a guided five-tab workflow make the system operable by students during viva "
+     "demonstrations and by practitioners after minimal familiarization.", False, False),
+])
+page_break()
 
-add_p(doc, "2.2 Specific Objectives", bold=True, size=13, space_before=10)
-objectives = [
-    "1. Collect structured clinical symptoms across 5 body systems.",
-    "2. Implement Forward Chaining inference for symptom-to-disease reasoning.",
-    "3. Implement Backward Chaining inference for hypothesis verification.",
-    "4. Design a Patient Vitals Triage Dashboard with anomaly alerts.",
-    "5. Provide a Knowledge Base Editor for dynamic rule customization.",
-    "6. Generate formal, printable EHR Diagnostic Reports formatted in Times New Roman."
-]
-for obj in objectives:
-    add_p(doc, obj, align=WD_ALIGN_PARAGRAPH.LEFT, space_after=4)
+# ---------------- PAGE 11: CH4 SYSTEM ANALYSIS AND DESIGN (1/3)
+chapter("CHAPTER 4: SYSTEM ANALYSIS AND DESIGN")
+sub("4.1 System Overview")
+body("The MediMind Clinical AI Suite is organized using a modular, multi-layer web architecture. "
+     "The system separates user presentation, clinical inference processing, knowledge base "
+     "storage, and reporting components. The presentation layer is a single-page React "
+     "application; the service layer is an Express REST API; the persistence layer is MongoDB "
+     "accessed through Mongoose schemas. The clinical inference itself executes entirely in the "
+     "browser against an in-memory knowledge base, guaranteeing sub-second response and patient "
+     "data privacy.")
+mono_block([
+    "+-----------------------------------------------------------------------+",
+    "|                       WEB GRAPHICAL USER INTERFACE                    |",
+    "|  [Forward Chaining] [Backward Chaining] [Vitals] [KB Editor] [EHR]    |",
+    "+-----------------------------------+-----------------------------------+",
+    "                                    |",
+    "                                    v",
+    "+-----------------------------------+-----------------------------------+",
+    "|                        CLINICAL INFERENCE ENGINE                      |",
+    "|  - Working Memory Manager (Symptom Facts & Patient Vitals)            |",
+    "|  - Production Rule Matcher (IF-THEN Clause Evaluator)                 |",
+    "|  - Confidence Calculator & Diagnostic Ranker                          |",
+    "+-----------------------------------+-----------------------------------+",
+    "                                    |",
+    "                                    v",
+    "+-----------------------------------------------------------------------+",
+    "|                     KNOWLEDGE BASE & PERSISTENCE                      |",
+    "|  - Disease Rules R1-R6 (Malaria, Dengue, COVID-19, Typhoid, Cold,     |",
+    "|    Viral Exhaustion) + Expert-Added Custom Rules                      |",
+    "|  - Symptom Catalog (16 structured clinical percepts)                  |",
+    "|  - MongoDB Atlas (assignments, manuals, quizzes via Mongoose)         |",
+    "+-----------------------------------------------------------------------+",
+], size=8)
+page_break()
 
-doc.add_page_break()
+# ---------------- PAGE 12: CH4 SYSTEM ANALYSIS AND DESIGN (2/3)
+sub("4.2 Major System Modules")
+numbered([
+    "Forward Chaining Diagnostic Module: evaluates active symptoms against every rule premise, computes confidence percentages, ranks differential diagnoses, and flags rules whose premises are fully satisfied (RULE FIRED).",
+    "Backward Chaining Verification Module: selects a candidate disease goal and works backward, separating evidence present in working memory from the missing required evidence.",
+    "Vitals and Triage Monitoring Module: accepts temperature, heart rate, blood pressure, and SpO2, colour-codes abnormal values, and auto-inserts the fever percept when temperature exceeds 100.4\u00b0F.",
+    "Knowledge Base Management Module: provides create operations on clinical rules with triage mapping (Critical \u2192 Emergency, otherwise Routine Care) and live integration with both inference engines.",
+    "EHR Report Generator Module: synthesizes patient demographics, vitals, top diagnosis, confidence score, ICD-10 code, suggested investigations, and precautions into a formal printable record.",
+    "Portal Backend Module: Express REST API serving ten AI assignment records (manuals, algorithms, complexity, code, quizzes) from MongoDB to the NOVA.lab portal.",
+])
+sub("4.3 Data Flow Diagram - Level 0 (Context Diagram)")
+mono_block([
+    "                    +---------------------------+",
+    "                    |   User / Medical Expert   |",
+    "                    +------------+--------------+",
+    "                                 |",
+    "                                 v",
+    "+----------------+   symptoms/vitals   +----------------------+",
+    "|   WEB CLIENT   | ------------------> |   EXPRESS REST API   |",
+    "|   (React 19)   | <------------------ |    (Node.js :5000)   |",
+    "+----------------+    JSON responses   +----------+-----------+",
+    "                                                |",
+    "                                                v",
+    "                                     +----------------------+",
+    "                                     |  MONGODB (Mongoose)  |",
+    "                                     |  assignment store    |",
+    "                                     +----------------------+",
+], size=8.5)
+page_break()
 
-add_p(doc, "REFERENCES", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True, size=16, space_after=14)
+# ---------------- PAGE 13: CH4 SYSTEM ANALYSIS AND DESIGN (3/3)
+sub("4.4 Data Flow Diagram - Level 1 (Clinical Inference)")
+mono_block([
+    " [Symptom Chips] ---> (Working Memory Facts) ---> [Rule Matcher]",
+    "                                                     |  satisfied / missing",
+    "                                                     v",
+    " [Vitals Panel] ---> (Vital Facts) --------> [Confidence Calculator]",
+    "                                                     |  ranked diagnoses",
+    "                                                     v",
+    " [KB Editor] ---> (Production Rules) ------> [EHR Generator] ---> [Report]",
+], size=8.5)
+sub("4.5 Use-Case Summary")
+bullets([
+    "Actor - Student / Practitioner: loads a clinical preset, toggles symptom chips, runs Forward Chaining, executes a Backward Chaining goal deduction, enters patient vitals, and exports the EHR report.",
+    "Actor - Domain Expert: opens the Knowledge Base Editor, defines a new production rule with required premises and triage level, and appends it to the live knowledge base.",
+    "Actor - Administrator (Portal): seeds and maintains the ten AI assignment documents in MongoDB through the seed script and REST API.",
+])
+sub("4.6 Data Model Overview")
+body("The clinical layer is represented by five logical entities: Patient Record (name, age, "
+     "gender, ID), Symptom Fact (percept identifier and category), Production Rule (rule ID, "
+     "required premises, conclusion, triage, ICD-10 code), Vital Log (timestamped temperature, "
+     "heart rate, blood pressure, SpO2), and EHR Document (finalized diagnostic summary). The "
+     "portal layer persists Assignment documents whose schema is detailed in Chapter 7. "
+     "Relationships are one-to-many: one patient session produces many symptom facts and one "
+     "EHR document; one knowledge base holds many production rules.")
+page_break()
+
+# ---------------- PAGE 14: CH5 AI CLINICAL DIAGNOSTIC SYSTEMS & RULE INFERENCE (1/4)
+chapter("CHAPTER 5: AI BASED CLINICAL DIAGNOSTIC SYSTEMS AND RULE INFERENCE")
+sub("5.1 Production Rule System Architecture")
+body("MediMind represents medical knowledge using production rules of the general form "
+     "IF (antecedent conditions) THEN (conclusion with certainty), the same knowledge "
+     "representation used by classical expert systems such as MYCIN and DENDRAL. Each rule "
+     "binds a set of required symptom percepts to a disease conclusion, a triage urgency, a "
+     "set of suggested laboratory investigations, a set of clinical precautions, and an ICD-10 "
+     "classification code.")
+mono_block([
+    "RULE <Rule_ID>:",
+    "  IF   Symptom_1 IS Present",
+    "  AND  Symptom_2 IS Present",
+    "  AND  ... (all required premises present in Working Memory)",
+    "  THEN CONCLUDE Disease = <Disease_Name>",
+    "  AND  TRIAGE = <Emergency | High Risk | Urgent | Routine>",
+    "  AND  SUGGEST <Laboratory Investigations>",
+    "  AND  RECOMMEND <Clinical Precautions>",
+    "  WITH ICD-10 CODE <Code>",
+], size=9)
+body("The knowledge base is stored as a JavaScript array of rule objects, which makes it "
+     "trivially serializable, auditable, and extensible at runtime by the Knowledge Base "
+     "Editor. Because rules are data rather than code, adding a new disease never requires "
+     "recompiling or modifying the inference engine.")
+page_break()
+
+# ---------------- PAGE 15: CH5 AI CLINICAL DIAGNOSTIC SYSTEMS & RULE INFERENCE (2/4)
+sub("5.2 Forward Chaining - Data-Driven Inference")
+body("Forward Chaining is a data-driven reasoning strategy: reasoning starts from the observed "
+     "symptoms (facts) and moves toward conclusions (diseases). The MediMind implementation "
+     "follows the classic recognize-act cycle of production systems:")
+numbered([
+    "Initialize working memory with the set of symptom facts selected by the user, plus any vital-derived facts (for example fever inserted when temperature > 100.4\u00b0F).",
+    "Match: for every production rule R in the knowledge base, compute the set of satisfied premises (required symptoms present in working memory) and the set of missing premises.",
+    "Compute confidence: Confidence(R) = (satisfied premises / required premises) x 100, rounded to the nearest integer percentage.",
+    "Resolve: sort all rules by descending confidence so the most probable differential diagnoses appear first.",
+    "Fire: any rule whose premises are 100% satisfied is marked CONFIRMED (RULE FIRED); its disease, description, ICD-10 code, investigations, and precautions become eligible for the top-diagnosis banner and the EHR report.",
+    "Repeat: every subsequent user action (toggling a symptom, editing vitals, adding a rule) recomputes the cycle instantly, giving live what-if diagnostic behaviour.",
+])
+body("Because the rule set is small and premises are evaluated with O(1) array membership "
+     "checks, the whole cycle executes in well under a millisecond, satisfying the "
+     "sub-100-millisecond non-functional requirement with a large margin.")
+page_break()
+
+# ---------------- PAGE 16: CH5 AI CLINICAL DIAGNOSTIC SYSTEMS & RULE INFERENCE (3/4)
+sub("5.3 Backward Chaining - Goal-Driven Inference")
+body("Backward Chaining is a goal-driven strategy: reasoning starts from a hypothesized "
+     "conclusion (a suspected disease) and works backward to verify the supporting evidence. "
+     "In clinical practice this corresponds to a differential work-up, where the clinician "
+     "asks targeted questions to confirm or discard one specific hypothesis. The MediMind "
+     "implementation is deliberately transparent:")
+numbered([
+    "The user selects a target goal from the knowledge base (for example R2: Dengue Hemorrhagic Fever).",
+    "The engine retrieves the rule\u2019s required premise list and partitions it into evidence present (premises already in working memory) and missing required evidence.",
+    "The hypothesis is PROVEN when every required premise is present; otherwise it is declared INCONCLUSIVE together with the achieved confidence percentage and the exact list of missing symptoms to investigate.",
+    "The full trace (goal, present evidence, missing evidence, confidence) is displayed to the user, preserving complete explainability of the decision.",
+])
+body("This design turns the backward chaining module into a teaching tool as much as a "
+     "diagnostic one: students can see precisely which clinical question would confirm or "
+     "refute each hypothesis, mirroring how laboratory investigations are ordered in practice.")
+page_break()
+
+# ---------------- PAGE 17: CH5 AI CLINICAL DIAGNOSTIC SYSTEMS & RULE INFERENCE (4/4)
+sub("5.4 Forward Chaining versus Backward Chaining")
+add_table(
+    ["Feature", "Forward Chaining", "Backward Chaining"],
+    [
+        ("Search Strategy", "Data-driven (Symptoms \u2192 Disease)", "Goal-driven (Disease Hypothesis \u2192 Symptoms)"),
+        ("Starting Point", "Observed patient symptoms and vitals", "Suspected target disease"),
+        ("Clinical Role", "Initial diagnostic discovery and triage", "Differential confirmation and work-up"),
+        ("User Interaction", "User selects all known symptoms", "System reports targeted missing evidence"),
+        ("Output", "Ranked list of all matching diseases with confidence", "Proof or refutation of one hypothesis with trace"),
+    ],
+    [1.5, 2.65, 2.65], size=11)
+sub("5.5 Confidence (Certainty Factor) Computation")
+body("Each rule receives a certainty score equal to the fraction of its required premises "
+     "satisfied by working memory: CF(R) = |satisfied(R) \u2229 WM| / |required(R)| x 100%. "
+     "A rule fires only at 100%. For example, selecting Fever, Chills and Sweating satisfies "
+     "all three premises of R1 (Malaria), so Malaria is CONFIRMED at 100% and is ranked first; "
+     "R6 (Viral Exhaustion) simultaneously reaches 33% because only the fever premise is "
+     "present, correctly appearing far lower in the differential ranking. This single, "
+     "transparent formula gives examiners and clinicians a fully traceable justification for "
+     "every displayed score.")
+page_break()
+
+# ---------------- PAGE 18: CH6 KNOWLEDGE BASE & WORKING MEMORY MANAGEMENT (1/4)
+chapter("CHAPTER 6: KNOWLEDGE BASE AND WORKING MEMORY MANAGEMENT")
+sub("6.1 Knowledge Representation Strategy")
+body("The knowledge base separates three concerns: the symptom catalog (the vocabulary of "
+     "percepts), the production rules (the diagnostic knowledge), and the working memory (the "
+     "current patient state). The symptom catalog defines sixteen structured percepts, each "
+     "with a stable identifier, a clinician-readable label, and a body-system category, which "
+     "drives the filterable chip interface and the Knowledge Base Editor premise picker.")
+add_table(
+    ["Category", "Structured Symptom Percepts"],
+    [
+        ("Systemic", "High Fever (>101\u00b0F), Severe Chills & Shivering, Profuse Diaphoresis (Sweating), Acute Systemic Fatigue, Extreme Physical Weakness"),
+        ("Respiratory", "Dry Persistent Cough, Anosmia (Loss of Smell/Taste), Frequent Sneezing, Rhinorrhea (Runny Nose), Dyspnea (Shortness of Breath)"),
+        ("Gastrointestinal", "Abdominal Cramps / Pain, Nausea & Vomiting"),
+        ("Neuro & Muscular", "Intense Retro-orbital Headache, Severe Joint & Muscle Ache (Breakbone), Petechial Skin Rash"),
+    ],
+    [1.55, 5.25], size=11)
+sub("6.2 Data Entities")
+add_table(
+    ["Entity", "Description & Purpose"],
+    [
+        ("Patient Record", "Stores patient demographic information (name, age, gender, report ID) used on the EHR document."),
+        ("Symptom Fact", "Represents an observed clinical percept placed into working memory by chip selection or vital auto-detection."),
+        ("Production Rule", "Stores antecedent conditions (IF), disease conclusion (THEN), triage urgency, ICD-10 code, investigations and precautions."),
+        ("Vital Log", "Holds the current physiological parameters (Temp, HR, BP, SpO2) with threshold-based anomaly flags."),
+        ("EHR Document", "The finalized diagnostic summary assembled from the confirmed diagnosis and patient context."),
+    ],
+    [1.55, 5.25], size=11)
+page_break()
+
+# ---------------- PAGE 19: CH6 KNOWLEDGE BASE & WORKING MEMORY MANAGEMENT (2/4)
+sub("6.3 Knowledge Base Rule Catalog")
+body("The seeded knowledge base ships with six production rules (R1-R6) covering the classical "
+     "fever differential used in Indian outpatient settings, each mapped to its ICD-10 code "
+     "and triage urgency:")
+add_table(
+    ["ID", "Disease Conclusion", "Required IF Premises", "ICD-10", "Triage"],
+    [
+        ("R1", "Malaria (Plasmodium Infection)", "Fever, Chills, Sweating", "B54", "Emergency"),
+        ("R2", "Dengue Hemorrhagic Fever", "Fever, Retro-orbital Headache, Rash, Joint Pain", "A97.1", "High Risk"),
+        ("R3", "COVID-19 Severe Respiratory Syndrome", "Fever, Dry Cough, Fatigue, Anosmia", "U07.1", "High Risk"),
+        ("R4", "Typhoid Enteric Fever", "Fever, Abdominal Pain, Weakness", "A01.0", "Urgent Outpatient"),
+        ("R5", "Acute Upper Respiratory Infection (Common Cold)", "Sneezing, Runny Nose", "J00", "Routine Care"),
+        ("R6", "Viral Exhaustion Syndrome", "Fever, Fatigue, Weakness", "R53.83", "Routine Care"),
+    ],
+    [0.5, 1.95, 2.55, 0.75, 1.05], center_cols=(0, 3), size=10)
+body("Rules R1, R2 and R3 are classified as emergency or high-risk triage and therefore drive "
+     "the critical alert banner whenever they fire, while R5 and R6 represent self-limiting "
+     "conditions requiring only routine care. This triage gradient demonstrates how the "
+     "knowledge base encodes not only diagnosis but also urgency of intervention.")
+page_break()
+
+# ---------------- PAGE 20: CH6 KNOWLEDGE BASE & WORKING MEMORY MANAGEMENT (3/4)
+sub("6.4 Sample Rule Definition (R2 - Dengue Hemorrhagic Fever)")
+mono_block([
+    "{",
+    "  id: 'R2',",
+    "  disease: 'Dengue Hemorrhagic Fever',",
+    "  severity: 'Severe Risk',",
+    "  triage: 'High Risk',",
+    "  required: ['fever', 'headache', 'rash', 'joint_pain'],",
+    "  desc: 'Flavivirus infection presenting retro-orbital pain, ' +",
+    "        'severe arthralgia, and risk of plasma leakage.',",
+    "  tests: ['Dengue NS1 Antigen ELISA', 'IgM / IgG Serology',",
+    "          'Daily Hematocrit & Platelet Monitoring'],",
+    "  precautions: ['Intravenous fluid therapy (Normal Saline)',",
+    "                'Avoid NSAIDs/Aspirin (Bleeding Risk)',",
+    "                'Bed rest & hematocrit monitoring'],",
+    "  icd: 'A97.1'",
+    "}",
+], size=9)
+body("Every rule carries its clinical guidance (tests and precautions) alongside the logical "
+     "premises, so the EHR generator can produce a complete advisory document without any "
+     "additional lookups. This bundling keeps knowledge and its justification together, a "
+     "recognised best practice in expert-system engineering.")
+sub("6.5 Knowledge Base Extensibility")
+body("The KB Editor tab appends expert-defined rules at runtime: the expert names the disease, "
+     "selects the triage urgency (Mild, Moderate, Severe, Critical), picks the required "
+     "premises from the symptom catalog, and submits. The new rule receives the next "
+     "sequential identifier, maps Critical to Emergency triage, and immediately participates "
+     "in both inference engines, demonstrating live knowledge acquisition during viva.")
+page_break()
+
+# ---------------- PAGE 21: CH6 KNOWLEDGE BASE & WORKING MEMORY MANAGEMENT (4/4)
+sub("6.6 Working Memory Management")
+body("Working memory is a React state array holding the identifiers of all active symptom "
+     "percepts. Toggling a chip adds or removes the fact; clearing resets memory to the empty "
+     "set. The vitals panel is coupled to working memory through a synchronization effect: "
+     "whenever the recorded body temperature exceeds 100.4\u00b0F, the fever fact is inserted "
+     "automatically, mirroring the clinical convention that a measured temperature is itself "
+     "diagnostic evidence. All rule evaluations are derived from this single source of truth, "
+     "guaranteeing consistency across the five tabs.")
+body("Five one-click clinical presets reproduce standard case scenarios for demonstration and "
+     "testing: Plasmodium Malaria (fever, chills, sweating; 103.1\u00b0F, 112 bpm), Dengue "
+     "Hemorrhagic (fever, headache, rash, joint pain; 102.8\u00b0F, 105 bpm), COVID-19 Severe "
+     "(fever, cough, fatigue, anosmia, dyspnea; 101.5\u00b0F, SpO2 93%), Typhoid Fever (fever, "
+     "abdominal pain, weakness; 102.0\u00b0F, 98 bpm), and Common Cold (sneezing, runny nose; "
+     "98.6\u00b0F, 75 bpm).")
+sub("6.7 Persistence and Data Privacy")
+body("All clinical state lives in the browser session only: no symptom selection, vital sign, "
+     "or EHR document is transmitted to the backend or logged to any endpoint, which satisfies "
+     "the security requirement for patient data. MongoDB persistence is reserved for the "
+     "non-clinical academic content of the NOVA.lab portal (assignment manuals, reference "
+     "code, and quizzes), keeping regulated clinical data entirely client-side.")
+page_break()
+
+# ---------------- PAGE 22: CH7 API INTEGRATION AND BACKEND IMPLEMENTATION (1/4)
+chapter("CHAPTER 7: API INTEGRATION AND BACKEND IMPLEMENTATION")
+sub("7.1 Backend Architecture")
+body("The backend is a Node.js single-page-service built with Express 4.19.2. On startup it "
+     "loads environment configuration through dotenv, connects to MongoDB via Mongoose, "
+     "enables CORS for cross-origin development requests from the Vite dev server, and parses "
+     "JSON request bodies. The API layer is intentionally minimal and read-oriented: the "
+     "clinical inference of MediMind runs entirely in the browser, while the backend serves "
+     "the NOVA.lab academic catalogue and hosts the built client in production.")
+body("The server follows a clean layered organization: index.js (application bootstrap and "
+     "routes), models/Assignment.js (Mongoose schema), and seed.js (database seeding). "
+     "In production the Express static middleware serves the compiled client bundle from "
+     "client/dist, and any non-API route falls back to index.html so that React Router "
+     "deep links survive a page refresh.")
+page_break()
+
+# ---------------- PAGE 23: CH7 API INTEGRATION AND BACKEND IMPLEMENTATION (2/4)
+sub("7.2 REST API Endpoints")
+add_table(
+    ["Method", "Endpoint", "Description", "Response"],
+    [
+        ("GET", "/api/assignments", "List all assignments (projection: title, slug, category, difficulty, visualizationType)", "200 JSON array"),
+        ("GET", "/api/assignments/:slug", "Fetch one assignment with manual, code and quiz by its unique slug", "200 JSON / 404 error"),
+        ("GET", "/", "Health probe when the client bundle is not yet built", "200 text"),
+        ("GET", "*", "SPA fallback: serves index.html for all non-API routes", "200 HTML"),
+    ],
+    [0.8, 1.9, 3.0, 1.1], center_cols=(0,), size=10)
+body("Both data endpoints wrap their Mongoose queries in try/catch blocks and return a 500 "
+     "status with a descriptive JSON error on failure; a missing slug returns a 404 with "
+     "{ error: 'Assignment not found' }. The SPA fallback explicitly excludes /api paths so "
+     "that unknown API routes still produce JSON errors rather than HTML.")
+sub("7.3 Mongoose Data Model (Assignment)")
+add_table(
+    ["Field", "Type", "Description"],
+    [
+        ("title", "String (required)", "Display name of the AI assignment"),
+        ("slug", "String (required, unique)", "URL identifier used by the client router"),
+        ("category", "String (required)", "Grouping such as Intelligent Agents or Expert Systems"),
+        ("difficulty", "Enum: Easy / Medium / Hard", "Viva difficulty grading"),
+        ("visualizationType", "Enum of 10 keys", "Selects the interactive visualizer component"),
+        ("manual.aim", "String (required)", "Laboratory aim statement (SPPU 2024 pattern)"),
+        ("manual.objectives", "[String]", "Bulleted objectives"),
+        ("manual.theory", "String (Markdown)", "Theory rendered with react-markdown + KaTeX"),
+        ("manual.algorithm", "[String]", "Step-by-step algorithm"),
+        ("manual.complexity", "{ time, space }", "Complexity analysis"),
+        ("code.python / code.java", "String (required)", "Reference implementations in both languages"),
+        ("resources", "[{ title, url }]", "External reference links"),
+        ("quiz", "[{ question, options, correctIndex, explanation }]", "Self-assessment quiz"),
+    ],
+    [1.75, 1.95, 3.1], size=10)
+page_break()
+
+# ---------------- PAGE 24: CH7 API INTEGRATION AND BACKEND IMPLEMENTATION (3/4)
+sub("7.4 Sample API Interaction")
+body("Listing the catalogue (GET /api/assignments) returns a lightweight projection:")
+mono_block([
+    "[",
+    "  {",
+    "    \"_id\": \"66f2a1c9e4b0a1234567890a\",",
+    "    \"title\": \"MediMind Clinical AI Suite\",",
+    "    \"slug\": \"expert-system-medical-diagnosis\",",
+    "    \"category\": \"Expert Systems\",",
+    "    \"difficulty\": \"Hard\",",
+    "    \"visualizationType\": \"expert-system\"",
+    "  }",
+    "]",
+], size=9)
+body("Fetching one assignment (GET /api/assignments/expert-system-medical-diagnosis) returns "
+     "the full document including manual.aim, manual.theory (Markdown with LaTeX), "
+     "manual.algorithm steps, manual.complexity, code.python, code.java, resources, and the "
+     "quiz array used by the interactive self-assessment. The React client consumes these "
+     "endpoints with axios, using the VITE_API_URL environment variable (default "
+     "http://localhost:5000 in development, same-origin in production) configured centrally "
+     "in client/src/config.js.")
+page_break()
+
+# ---------------- PAGE 25: CH7 API INTEGRATION AND BACKEND IMPLEMENTATION (4/4)
+sub("7.5 MongoDB Integration and Persistence")
+body("Mongoose connects asynchronously at boot using the MONGO_URI environment variable and "
+     "logs a success or failure message. Schema-level validation (required fields, enums, "
+     "unique slug) protects the catalogue from malformed writes, and the seed script "
+     "(npm run seed) populates the database with the ten AI assignments, including the "
+     "MediMind expert-system record with its complete manual and reference code. Timestamps "
+     "are enabled so every document records its creation and last modification.")
+sub("7.6 Error Handling and Security Considerations")
+bullets([
+    "All Mongoose operations are wrapped in try/catch; failures return HTTP 500 with a JSON error instead of crashing the server.",
+    "Unknown assignment slugs return HTTP 404 with a machine-readable JSON body for clean client-side handling.",
+    "CORS is enabled so the Vite development origin (localhost:5173) can call the API on localhost:5000 during development.",
+    "Secrets such as MONGO_URI are loaded from a .env file that is excluded from version control.",
+    "The SPA fallback route guards /api paths, ensuring API consumers never receive HTML for unknown endpoints.",
+    "No clinical patient data ever leaves the browser, so the backend holds no regulated health information.",
+])
+page_break()
+
+# ---------------- PAGE 26: CH8 GUI & CLINICAL VISUALIZER (1/2)
+chapter("CHAPTER 8: GRAPHICAL USER INTERFACE AND CLINICAL VISUALIZER")
+sub("8.1 Design Principles")
+bullets([
+    "Clarity first: a dark header banner, generous card spacing, and a consistent 16 px radius language keep dense clinical data readable.",
+    "Colour semantics: green confirms (rule fired, vitals normal), amber warns (inconclusive hypothesis, differential diagnosis), rose flags danger (abnormal vitals, missing critical evidence).",
+    "Progressive disclosure: five tabs separate concerns so each screen shows only one clinical task at a time.",
+    "Responsiveness: flex-wrap layouts and auto-fit grids adapt from laboratory desktops to tablets at the bedside.",
+    "Explainability on screen: satisfied and missing premises are always printed alongside every score, never hidden.",
+])
+sub("8.2 Layout and Information Architecture")
+body("The suite opens with an application banner carrying the MediMind identity, version badge "
+     "(v2.4 SPPU Pattern), and a live vitals quick-bar that permanently shows temperature, "
+     "heart rate, and SpO2 with threshold-based colouring. Below it, five pill-shaped tabs "
+     "switch between: (1) Forward Chaining Engine, (2) Goal Backward Deductor, (3) Patient "
+     "Vitals & EHR Input, (4) Knowledge Base Editor, and (5) Clinical Diagnosis Report. A "
+     "preset strip offers the five clinical outbreak scenarios plus a Clear Facts reset, and "
+     "the symptom matrix renders the sixteen percepts as filterable chips grouped by body "
+     "system with a live count of active working-memory facts.")
+page_break()
+
+# ---------------- PAGE 27: CH8 GUI & CLINICAL VISUALIZER (2/2)
+sub("8.3 Module-wise Interface Description")
+numbered([
+    "Forward Chaining Workbench: a confirmation banner for the fired rule with a direct Generate EHR Prescription action, followed by one ranked card per production rule showing the rule ID badge, triage pill, confidence percentage, animated progress bar, and explicit satisfied/missing premise lists.",
+    "Backward Chaining Verifier: a goal selector listing every rule as \u201cRn: Disease (Target Goal)\u201d, an Execute Goal Deduction action, and a trace card split into green evidence-present and red missing-evidence panels.",
+    "Vitals and EHR Input: a demographic grid (patient name, age, gender) plus numeric inputs for temperature, heart rate, and SpO2; values crossing clinical thresholds recolour immediately and fever auto-feeds working memory.",
+    "Knowledge Base Editor: a form with disease name, triage urgency selector, premise chip picker, and an Append Rule action that demonstrates live knowledge acquisition.",
+    "EHR Clinical Report: a formal document view with report header, Report ID and date, patient demographics strip, primary or provisional diagnosis block with confidence score, ICD-10 code, and two advisory panels for investigations and precautions.",
+])
+sub("8.4 Visual Language and Accessibility")
+body("Iconography from lucide-react (Thermometer, Heart, Activity, Stethoscope, Brain, "
+     "TrendingUp, FileText) reinforces meaning without relying on colour alone; every "
+     "percentage is also stated numerically for colour-blind users. Interactive targets are "
+     "sized for touch, the symptom matrix scrolls within a fixed-height container to keep the "
+     "toolbar visible, and the whole interface uses the Times New Roman serif family in the "
+     "generated EHR document so printed records match formal hospital documentation "
+     "conventions.")
+page_break()
+
+# ---------------- PAGE 28: CH9 SYSTEM IMPLEMENTATION & TESTING (1/4)
+chapter("CHAPTER 9: SYSTEM IMPLEMENTATION AND TESTING")
+sub("9.1 Development Environment")
+bullets([
+    "Editor: Visual Studio Code with ESLint and React Refresh tooling.",
+    "Runtime: Node.js v18+ with npm workspaces for client and server.",
+    "Version Control: Git with a feature-branch workflow on the nova-lab repository.",
+    "Database: MongoDB Atlas free cluster reachable through MONGO_URI.",
+    "Testing browsers: Chrome and Edge developer tools, including device emulation for responsive checks.",
+])
+sub("9.2 Technology Stack Summary")
+add_table(
+    ["Layer", "Technology", "Purpose"],
+    [
+        ("Frontend framework", "React 19.2.8 + Vite 8.3.0", "SPA rendering and fast HMR builds"),
+        ("Routing", "react-router-dom 7.18.4", "Home and AssignmentDetail routes"),
+        ("HTTP client", "axios 1.20.0", "REST calls to the Express API"),
+        ("Icons", "lucide-react", "Clinical and navigational iconography"),
+        ("Markdown/Math", "react-markdown, remark-math, rehype-katex", "Rendering manuals with equations"),
+        ("Backend", "Node.js + Express 4.19.2", "REST API and static hosting (port 5000)"),
+        ("Database", "MongoDB Atlas + Mongoose 8.5.2", "Schema-validated persistence"),
+        ("Language", "JavaScript (ES Modules)", "Shared module system across client and server"),
+    ],
+    [1.75, 2.45, 2.6], size=10)
+page_break()
+
+# ---------------- PAGE 29: CH9 SYSTEM IMPLEMENTATION & TESTING (2/4)
+sub("9.3 Implementation Highlights")
+body("The MediMind suite is implemented as a single self-contained React component of "
+     "approximately 740 lines (MedicalExpertVisualizer.jsx) with the knowledge base and "
+     "symptom catalog as module-level constants. The inference computation is a derived "
+     "value: for every render, the knowledge base is mapped to evaluation objects containing "
+     "satisfied premises, missing premises, confidence percentage, and a confirmed flag, then "
+     "sorted by descending confidence. This declarative approach eliminates state "
+     "synchronization bugs, because the ranking is always a pure function of (rules x working "
+     "memory).")
+body("Preset loaders update both the symptom array and the vitals object atomically; the "
+     "vitals-to-memory effect inserts the fever percept when temperature exceeds 100.4\u00b0F; "
+     "the KB Editor constructs a well-formed rule object (sequential ID, triage mapping, "
+     "default investigations and ICD-10 R69 for custom entries) and appends it to the live "
+     "knowledge base. A project-level config.js centralizes the API base URL so the same "
+     "bundle works in development and production.")
+sub("9.4 Code Organization")
+mono_block([
+    "nova-lab/",
+    "|-- client/                     # React 19 + Vite 8 frontend",
+    "|   |-- src/",
+    "|   |   |-- components/         # 10 AI visualizer components",
+    "|   |   |   |-- MedicalExpertVisualizer.jsx   (MediMind Suite)",
+    "|   |   |   |-- AlphaBetaVisualizer.jsx, BFSVisualizer.jsx, ...",
+    "|   |   |-- pages/              # Home.jsx, AssignmentDetail.jsx",
+    "|   |   |-- config.js           # VITE_API_URL -> localhost:5000",
+    "|   |   +-- App.jsx / main.jsx  # Router + entry point",
+    "|   +-- package.json            # react 19.2.8, vite 8.3.0, axios",
+    "+-- server/                     # Node.js + Express 4 backend",
+    "    |-- index.js                # REST API + static hosting (port 5000)",
+    "    |-- models/Assignment.js    # Mongoose schema (validated)",
+    "    +-- seed.js                 # Database seeding script",
+], size=8.5)
+page_break()
+
+# ---------------- PAGE 30: CH9 SYSTEM IMPLEMENTATION & TESTING (3/4)
+sub("9.5 Testing Strategy")
+body("Testing combined black-box functional testing of every functional requirement with "
+     "targeted white-box checks of the rule matcher. Each clinical preset was executed and "
+     "the resulting ranking, confidence values, and fired rules were verified against "
+     "hand-computed expectations. Boundary tests exercised the vitals thresholds (100.4\u00b0F "
+     "fever boundary, 95% SpO2 alert, tachycardia display) and the API was exercised for "
+     "happy-path and error-path responses, including invalid slugs and the SPA fallback "
+     "behaviour after a deep-link refresh.")
+sub("9.6 Test Case Results")
+add_table(
+    ["TC ID", "Input / Action", "Expected & Observed Output", "Status"],
+    [
+        ("TC-01", "Preset: Plasmodium Malaria (fever, chills, sweating)", "R1 Malaria CONFIRMED at 100%, RULE FIRED banner shown, ranked first", "PASS"),
+        ("TC-02", "Backward goal R2 Dengue with rash and joint pain unselected", "Hypothesis INCONCLUSIVE; missing evidence lists rash, joint pain; confidence 50%", "PASS"),
+        ("TC-03", "Vitals: SpO2 88%, HR 125 bpm, Temp 103\u00b0F", "SpO2 and HR flagged red, fever auto-inserted into working memory, critical triage alert", "PASS"),
+        ("TC-04", "KB Editor: add custom rule for a new disease with two premises", "Rule appended with next ID, immediately appears in Forward Chaining ranking", "PASS"),
+        ("TC-05", "Preset: Common Cold (sneezing, runny nose)", "R5 confirmed at 100% with Routine Care triage; febrile rules drop below 50%", "PASS"),
+        ("TC-06", "GET /api/assignments/invalid-slug", "HTTP 404 with JSON { error: 'Assignment not found' }", "PASS"),
+        ("TC-07", "Deep-link refresh on an assignment route (production build)", "SPA fallback serves index.html and the client router restores the page", "PASS"),
+    ],
+    [0.65, 2.35, 3.05, 0.75], center_cols=(0, 3), size=10)
+page_break()
+
+# ---------------- PAGE 31: CH9 SYSTEM IMPLEMENTATION & TESTING (4/4)
+sub("9.7 Validation Summary")
+body("All seven test cases passed across repeated runs, and the suite was additionally "
+     "demonstrated end-to-end during the project review: preset loading, forward chaining, "
+     "backward chaining, vitals anomaly flagging, live rule insertion, and EHR generation "
+     "behaved exactly as specified in the SRS. The knowledge base remained consistent after "
+     "adding custom rules, and no state corruption was observed when switching tabs rapidly.")
+sub("9.8 Performance Analysis")
+body("The inference cycle evaluates every rule against every premise with constant-time array "
+     "membership checks, giving O(R x A) work per cycle for R rules and A average premises "
+     "per rule. With the shipped knowledge base (6 rules, 16 percepts, at most 4 premises per "
+     "rule) the engine performs at most a few dozen comparisons per keystroke, completing in "
+     "well under a millisecond and comfortably meeting the sub-100-millisecond NFR. React\u2019s "
+     "reconciliation updates only the changed confidence bars, keeping the interface at 60 "
+     "frames per second on commodity hardware.")
+sub("9.9 Limitations")
+bullets([
+    "The knowledge base ships with six seeded diseases; coverage of other conditions requires expert-authored rules.",
+    "Confidence is a transparent premise-coverage ratio, not a probabilistic Bayesian posterior.",
+    "Vital signs are entered manually; continuous telemetry requires the future IoT integration described in Chapter 10.",
+])
+page_break()
+
+# ---------------- PAGE 32: CH10 CONCLUSION & FUTURE SCOPE
+chapter("CHAPTER 10: CONCLUSION AND FUTURE SCOPE")
+sub("10.1 Conclusion")
+body("The MediMind Clinical AI Suite successfully demonstrates the practical implementation of "
+     "an artificial intelligence expert diagnostic system. By combining Forward Chaining "
+     "data-driven inference, Backward Chaining hypothesis verification, physiological vitals "
+     "monitoring, and Knowledge Base management inside a full-stack web application, the "
+     "system provides a robust, explainable, and customizable assistant for medical "
+     "diagnostics education and decision support. Every diagnostic conclusion remains fully "
+     "traceable to the production rules and premises that produced it, which is the property "
+     "that matters most in clinical settings and which black-box models cannot offer. The "
+     "project also delivers a reusable engineering foundation: ten working AI visualizers, a "
+     "documented REST API, and a validated Mongoose data layer that future SPPU batches can "
+     "extend.")
+sub("10.2 Future Scope")
+bullets([
+    "Integration with real-time medical IoT vital-sign sensors (Bluetooth BLE pulse oximeters, smart thermometers) for continuous patient monitoring.",
+    "DICOM medical image classification modules for chest X-ray and CT analysis to complement symptom-based inference.",
+    "A hybrid reasoning mode where a machine-learned model proposes candidate diseases and the rule engine explains and validates them.",
+    "Multi-language clinical interfaces and voice-guided symptom entry for international and low-literacy deployment.",
+    "Interoperability with hospital EMR systems through HL7 FHIR resources and export of EHR documents as signed PDFs.",
+    "Role-based authentication on the portal with per-institution knowledge bases and audit trails for expert rule edits.",
+])
+page_break()
+
+# ---------------- PAGE 33: REFERENCES
+chapter("REFERENCES")
 refs = [
-    "1. Russell, S. and Norvig, P., Artificial Intelligence: A Modern Approach, 4th Edition, Pearson Education, 2021.",
-    "2. Shortliffe, E. H., Computer-Based Medical Consultations: MYCIN, Elsevier, 1976.",
-    "3. Giarratano, J. and Riley, G., Expert Systems: Principles and Programming, 4th Edition, Thomson Course Technology, 2004.",
-    "4. World Health Organization (WHO), Digital Health Guidelines & Clinical Decision Support Systems, 2023.",
-    "5. Savitribai Phule Pune University (SPPU), Computer Engineering AI Practical & Mini Project Guidelines 2024 Pattern."
+    "Russell, S. and Norvig, P., Artificial Intelligence: A Modern Approach, 4th Edition, Pearson Education, 2021.",
+    "Shortliffe, E. H., Computer-Based Medical Consultations: MYCIN, Elsevier, 1976.",
+    "Giarratano, J. and Riley, G., Expert Systems: Principles and Programming, 4th Edition, Thomson Course Technology, 2004.",
+    "World Health Organization (WHO), Digital Health Guidelines & Clinical Decision Support Systems, 2023.",
+    "International Classification of Diseases (ICD-10), World Health Organization, 2019.",
+    "React Documentation, React 19 and Vite 8 Development Guide. Available at: https://react.dev/",
+    "Express.js and MongoDB/Mongoose Official Documentation. Available at: https://expressjs.com/ and https://mongoosejs.com/",
+    "Savitribai Phule Pune University (SPPU), Computer Engineering Artificial Intelligence Practical and Mini Project Guidelines, 2024 Pattern.",
 ]
-for ref in refs:
-    add_p(doc, ref, align=WD_ALIGN_PARAGRAPH.JUSTIFY, space_after=6)
+numbered(refs)
 
-# Save docx
-docx_path = r"C:\Users\lenovo\Desktop\IRONMAN\FULLSTACK\PROJECTS\FULLSTACK\NOVA.lab 2.0\nova-lab\NOVA_lab_Mini_Project_Report.docx"
-doc.save(docx_path)
-print(f"Successfully generated DOCX at {docx_path}")
+# ---------------------------------------------------------------- footers ---
+# Section 0 (front matter): no page numbers. Section 1: "page numbers start at 1".
+restart_page_numbering(doc.sections[1], start=1)
+add_footer_page_numbers(doc.sections[1])
+
+doc.save(DOCX_PATH)
+print(f"DOCX saved: {DOCX_PATH}")
+
+# ------------------------------------------------------- convert to PDF -----
+def convert_to_pdf(docx_path, pdf_path):
+    try:
+        import win32com.client
+        import pythoncom
+        pythoncom.CoInitialize()
+        word = win32com.client.DispatchEx("Word.Application")
+        word.Visible = False
+        word.DisplayAlerts = 0
+        try:
+            d = word.Documents.Open(os.path.abspath(docx_path), ReadOnly=True)
+            d.SaveAs2(os.path.abspath(pdf_path), FileFormat=17)  # wdFormatPDF
+            d.Close(False)
+            print(f"PDF saved: {pdf_path}")
+        finally:
+            word.Quit()
+            pythoncom.CoUninitialize()
+        return True
+    except Exception as e:
+        print(f"Word conversion failed: {e}")
+        return False
+
+if convert_to_pdf(DOCX_PATH, PDF_PATH) and DESKTOP_PDF != PDF_PATH:
+    try:
+        import shutil
+        shutil.copyfile(PDF_PATH, DESKTOP_PDF)
+        print(f"PDF copied to Desktop: {DESKTOP_PDF}")
+    except Exception as e:
+        print(f"Desktop copy failed: {e}")
